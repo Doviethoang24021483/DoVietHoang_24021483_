@@ -1,30 +1,3 @@
-"""
-===============================================================================
-BENCHMARK v2: SO SÁNH 5 MÃ HÓA AMO (Binomial, Binary, Commander, Product,
-Sequential) TRÊN BÀI TOÁN SUDOKU N x N VỚI GLUCOSE3 (PySAT)
-===============================================================================
-Điểm mới so với v1:
-  1. Đo riêng thời gian nạp mệnh đề vào bộ giải (load_time).
-  2. Ghi đủ decisions / conflicts / propagations / restarts.
-  3. Timeout theo từng kích thước (mặc định N=36 -> 300 s).
-  4. Quét nhiều tỉ lệ ô trống (mặc định 30%, 40%, 50%, 60%).
-  5. Nhiều seed (mặc định 30), seed sinh bảng và seed chọn ô xóa độc lập.
-  6. Mọi lượt chạy được ghi vào CSV thô (từng seed) -> phân tích theo cặp,
-     vẽ cactus plot, kiểm định thống kê về sau. Có thể DỪNG và CHẠY TIẾP
-     (resume): các cấu hình đã có trong CSV sẽ được bỏ qua.
-  7. Bảng tổng hợp có median, khoảng tin cậy bootstrap 95% của PAR-2 và
-     kiểm định Fisher (tỉ lệ timeout) so với Binomial.
-  8. PAR-2 tính trên (enc + load + solve); lượt vượt timeout bị phạt 2T.
-  9. Kiểm chứng lời giải còn đối chiếu lại các ô gợi ý ban đầu.
-
-Cách dùng nhanh:
-  python benchmark_v2.py --preset quick          # chạy thử vài phút
-  python benchmark_v2.py --preset full           # cấu hình đầy đủ (RẤT lâu)
-  python benchmark_v2.py --summary-only          # chỉ đọc CSV và in tổng hợp
-  python benchmark_v2.py --sizes 9 16 25 --seeds 50 --ratios 0.5 --timeouts 9:30,16:30,25:60
-===============================================================================
-"""
-
 import argparse
 import csv
 import math
@@ -41,9 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from pysat.solvers import Glucose3
 
 
-# =============================================================================
 # 1. QUẢN LÝ BIẾN SAT
-# =============================================================================
 
 class VarManager:
     """Cấp phát ID cho biến chính (N^3) và biến phụ."""
@@ -62,9 +33,7 @@ class VarManager:
         return list(range(start, start + count))
 
 
-# =============================================================================
 # 2. NĂM MÃ HÓA AMO
-# =============================================================================
 
 def binomial_amo(clauses: List[List[int]], variables: List[int], vm: VarManager) -> None:
     k = len(variables)
@@ -145,9 +114,7 @@ AMO_MAPPINGS: Dict[str, Callable] = {
 }
 
 
-# =============================================================================
 # 3. MÃ HÓA SUDOKU, GIẢI MÃ, KIỂM CHỨNG
-# =============================================================================
 
 def generate_sudoku_clauses(board: List[List[int]], n: int,
                             amo_func: Callable) -> Tuple[List[List[int]], VarManager]:
@@ -213,9 +180,7 @@ def verify_sudoku_solution(grid: List[List[int]], puzzle: List[List[int]], n: in
     return True
 
 
-# =============================================================================
 # 4. SINH ĐỀ BÀI (seed bảng đầy đủ và seed chọn ô xóa độc lập)
-# =============================================================================
 
 def generate_complete_sudoku(n: int, seed: int) -> List[List[int]]:
     bs = math.isqrt(n)
@@ -240,9 +205,7 @@ def generate_sudoku(n: int, empty_cells: int, seed: int) -> List[List[int]]:
     return puzzle
 
 
-# =============================================================================
 # 5. TIẾN TRÌNH CON: ENCODE -> LOAD -> SOLVE -> VERIFY
-# =============================================================================
 
 def benchmark_worker(enc_name: str, puzzle: List[List[int]], n: int, result_queue) -> None:
     try:
@@ -320,9 +283,7 @@ def run_single_test(enc_name: str, puzzle: List[List[int]], n: int, timeout: flo
     return res
 
 
-# =============================================================================
 # 6. GHI/ĐỌC CSV, CHẠY THEO LÔ, RESUME
-# =============================================================================
 
 CSV_FIELDS = [
     "n", "empty_ratio", "empty_cells", "encoding", "seed", "timeout", "status",
@@ -413,9 +374,7 @@ def run_experiments(args) -> None:
         fout.close()
 
 
-# =============================================================================
 # 7. THỐNG KÊ VÀ BÁO CÁO TỔNG HỢP
-# =============================================================================
 
 def fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
     """Kiểm định chính xác Fisher hai phía cho bảng [[a,b],[c,d]]."""
@@ -543,9 +502,7 @@ def summarize(path: str, baseline: str = "Binomial", out_summary: Optional[str] 
           "(hai phía, chưa hiệu chỉnh đa so sánh). Dữ liệu thô từng seed nằm trong", path)
 
 
-# =============================================================================
 # 8. CLI
-# =============================================================================
 
 def parse_timeouts(spec: str) -> Dict[int, float]:
     out = {}
@@ -556,12 +513,12 @@ def parse_timeouts(spec: str) -> Dict[int, float]:
 
 
 PRESETS = {
-    # ~ vài phút: kiểm tra nhanh pipeline
+    # vài phút: kiểm tra nhanh pipeline
     "quick": dict(sizes=[9, 16, 25], seeds=5, ratios=[0.5], timeouts="9:30,16:30,25:60,36:60"),
-    # N<=25 đầy đủ: nhiều seed, quét tỉ lệ ô trống (chạy được trong khoảng 1-2 giờ)
+    # N<=25 đầy đủ: nhiều seed, quét tỉ lệ ô trống
     "medium": dict(sizes=[9, 16, 25], seeds=30, ratios=[0.3, 0.4, 0.5, 0.6],
                    timeouts="9:30,16:30,25:120,36:300"),
-    # Cấu hình đầy đủ theo đề xuất; N=36 có thể mất RẤT nhiều giờ (xem ước lượng trong README/hướng dẫn)
+    # Cấu hình đầy đủ theo đề xuất; N=36 có thể mất RẤT nhiều giờ
     "full": dict(sizes=[9, 16, 25, 36], seeds=30, ratios=[0.3, 0.4, 0.5, 0.6],
                  timeouts="9:30,16:30,25:120,36:300"),
 }
