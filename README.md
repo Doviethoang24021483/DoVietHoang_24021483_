@@ -74,7 +74,3 @@ python sudoku3/benchmark_v2.py --summary-only
 | `par2` | Điểm PAR-2: bằng `total_time` nếu giải xong, bằng `2 x timeout` nếu timeout |
 | `conflicts`, `decisions`, `propagations`, `restarts` | Thống kê tìm kiếm của bộ giải |
 | `verified`, `error` | Kết quả kiểm chứng nghiệm và thông báo lỗi (nếu có) |
-
-## Giấy phép
-
-Chưa chọn giấy phép; liên hệ tác giả nếu muốn sử dụng lại.
