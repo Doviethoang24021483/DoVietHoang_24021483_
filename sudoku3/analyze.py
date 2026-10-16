@@ -1,19 +1,3 @@
-#!/usr/bin/env python3
-"""
-analyze.py -- Tai lap toan bo bang/hinh cua Chuong 4 tu results_raw.csv (khong can LaTeX).
-
-Cach dung:
-    pip install numpy pandas scipy matplotlib
-    python analyze.py results_raw.csv [thu_muc_dau_ra]
-
-Dau ra (mac dinh thu muc analysis_out/):
-    tables/*.csv   : tung bang (Bang 4.2 - 4.10)
-    figures/*.png  : Hinh 4.1 - 4.4
-    report.md      : tat ca bang gop thanh mot file de doc nhanh
-
-Tham so thong ke khop bao cao: bootstrap 10 000 lan, Wilcoxon + Holm trong tung o,
-Friedman tren PAR-2, phan tich ghep cap tren tap seed ca nam ma hoa cung hoan tat.
-"""
 import itertools
 import math
 import os
