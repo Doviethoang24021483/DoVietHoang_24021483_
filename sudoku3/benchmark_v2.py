@@ -389,13 +389,35 @@ def fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
     return min(1.0, sum(prob(x) for x in range(lo, hi + 1) if prob(x) <= p_obs * (1 + 1e-9)))
 
 
-def bootstrap_ci_mean(values: List[float], iters: int = 2000, seed: int = 0) -> Tuple[float, float]:
+def bootstrap_ci_mean(values: List[float], iters: int = 10000, seed: int = 12345) -> Tuple[float, float]:
+    """Khoang tin cay bootstrap phan vi 95% cua trung binh (10 000 lan lay mau lai, hat giong 12345).
+    Neu co NumPy thi dung cung thuat toan voi analyze.py nen ra cung ket qua; neu khong thi dung
+    ban Python thuan (cung tham so, khac bo sinh so ngau nhien nen co the lech o chu so cuoi)."""
     if len(values) < 2:
         return (values[0], values[0]) if values else (0.0, 0.0)
-    rng = random.Random(seed)
-    k = len(values)
-    means = sorted(sum(values[rng.randrange(k)] for _ in range(k)) / k for _ in range(iters))
-    return means[int(0.025 * iters)], means[int(0.975 * iters)]
+    try:
+        import numpy as np
+    except ImportError:
+        rng = random.Random(seed)
+        k = len(values)
+        means = sorted(sum(rng.choices(values, k=k)) / k for _ in range(iters))
+        return means[int(0.025 * iters)], means[int(0.975 * iters)]
+    x = np.asarray(values, float)
+    idx = np.random.default_rng(seed).integers(0, len(x), size=(iters, len(x)))
+    m = x[idx].mean(axis=1)
+    return float(np.percentile(m, 2.5)), float(np.percentile(m, 97.5))
+
+
+def holm_adjust(ps: List[float]) -> List[float]:
+    """Hieu chinh Holm-Bonferroni; tra ve p da hieu chinh theo thu tu dau vao."""
+    m = len(ps)
+    order = sorted(range(m), key=lambda i: ps[i])
+    adj = [0.0] * m
+    run = 0.0
+    for rank, i in enumerate(order):
+        run = max(run, (m - rank) * ps[i])
+        adj[i] = min(1.0, run)
+    return adj
 
 
 def _f(x: str) -> Optional[float]:
@@ -425,7 +447,7 @@ def summarize(path: str, baseline: str = "Binomial", out_summary: Optional[str] 
         print(f"\n[ N = {n}x{n} | ô trống {ratio:.0%} ({any_row['empty_cells']} ô) | timeout {any_row['timeout']}s ]")
         header = (f"{'Encoding':<11}|{'Aux':>8}|{'Clauses':>9}|{'Enc':>7}|{'Load':>7}|{'Sol(mean)':>10}|"
                   f"{'Sol(med)':>9}|{'PAR-2 mean [95% CI]':>27}|{'PAR-2 med':>10}|{'Conflicts':>10}|"
-                  f"{'Decisions':>10}|{'Verified':>9}|{'Timeouts':>9}|{'Err':>4}|{'p(Fisher)':>10}")
+                  f"{'Decisions':>10}|{'Verified':>9}|{'Timeouts':>9}|{'Err':>4}|{'p(F,Holm)':>10}")
         print("-" * len(header))
         print(header)
         print("-" * len(header))
@@ -434,11 +456,21 @@ def summarize(path: str, baseline: str = "Binomial", out_summary: Optional[str] 
         base_to = sum(r["status"] == "TIMEOUT" for r in base_rows)
         base_ok_cnt = sum(r["status"] in ("OK", "TIMEOUT") for r in base_rows)
 
+        raw_p: Dict[str, float] = {}
+        for enc in AMO_MAPPINGS:
+            if enc == baseline or not base_ok_cnt:
+                continue
+            vr = [r for r in enc_groups.get(enc, []) if r["status"] in ("OK", "TIMEOUT")]
+            if vr:
+                to_e = sum(r["status"] == "TIMEOUT" for r in vr)
+                raw_p[enc] = fisher_exact_two_sided(to_e, len(vr) - to_e, base_to, base_ok_cnt - base_to)
+        adj_p = dict(zip(raw_p, holm_adjust(list(raw_p.values()))))
+
         for enc in AMO_MAPPINGS:
             rs = enc_groups.get(enc)
             if not rs:
                 continue
-            valid_runs = [r for r in rs if r["status"] in ("OK", "TIMEOUT")]
+            valid_runs = sorted((r for r in rs if r["status"] in ("OK", "TIMEOUT")), key=lambda r: int(r["seed"]))
             errs = sum(r["status"] == "ERROR" for r in rs)
             ok = [r for r in rs if r["status"] == "OK"]
             to = sum(r["status"] == "TIMEOUT" for r in rs)
@@ -470,11 +502,7 @@ def summarize(path: str, baseline: str = "Binomial", out_summary: Optional[str] 
 
             verified = "-" if not ok else ("PASSED" if all(r["verified"] == "1" for r in ok) else "FAILED")
 
-            if enc != baseline and base_ok_cnt and valid_runs:
-                p = fisher_exact_two_sided(to, len(valid_runs) - to, base_to, base_ok_cnt - base_to)
-                p_str = f"{p:.3f}"
-            else:
-                p_str = "-"
+            p_str = f"{adj_p[enc]:.3f}" if enc in adj_p else "-"
 
             conf = mean_of("conflicts")
             dec = mean_of("decisions")
@@ -498,8 +526,9 @@ def summarize(path: str, baseline: str = "Binomial", out_summary: Optional[str] 
             w.writeheader()
             w.writerows(summary_rows)
         print(f"\nĐã ghi bảng tổng hợp: {out_summary}")
-    print("\nGhi chú: p(Fisher) so sánh tỉ lệ timeout với", baseline,
-          "(hai phía, chưa hiệu chỉnh đa so sánh). Dữ liệu thô từng seed nằm trong", path)
+    print("\nGhi chú: p(F,Holm) là p của kiểm định Fisher hai phía so sánh tỉ lệ timeout với", baseline,
+          "sau hiệu chỉnh Holm trên 4 so sánh; khoảng tin cậy PAR-2 là bootstrap 10 000 lần.")
+    print("Dữ liệu thô từng seed nằm trong", path, "- Friedman, Wilcoxon-Holm, bảng ghép cặp và hình: chạy analyze.py.")
 
 
 # 8. CLI
