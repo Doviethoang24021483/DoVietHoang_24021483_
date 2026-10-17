@@ -33,7 +33,7 @@ Thư mục `sudoku3/analysis_out/` do `analyze.py` sinh ra mỗi lần chạy (c
 
 - Python 3.13.11
 - python-sat 1.9.dev15 (Glucose3)
-- NumPy, pandas, SciPy, Matplotlib: phiên bản ghi ở Bảng 4.1 của báo cáo (điền theo máy của bạn)
+- NumPy 2.4.3, pandas 3.0.1, SciPy 1.17., Matplotlib 3.10.8
 - Máy chạy: Intel Core i5-1240P, 8 GB RAM, Windows 11
 
 ## Cài đặt
