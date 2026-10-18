@@ -1,10 +1,3 @@
-"""Phân tích dữ liệu thô của benchmark_v2.py và sinh các bảng, hình của Chương 4.
-
-Cách chạy:  python analyze.py results_raw.csv analysis_out
-
-Mọi con số xuất hiện trong văn xuôi của báo cáo đều được in ra (mục "SO LIEU CHO VAN XUOI")
-hoặc nằm trong các bảng CSV / report.md, để đối chiếu trực tiếp.
-"""
 import itertools
 import math
 import os
