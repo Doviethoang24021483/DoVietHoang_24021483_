@@ -17,7 +17,6 @@ from pysat.solvers import Glucose3
 # 1. QUẢN LÝ BIẾN SAT
 
 class VarManager:
-    """Cấp phát ID cho biến chính (N^3) và biến phụ."""
 
     def __init__(self, n: int):
         self.n = n
@@ -161,7 +160,6 @@ def decode_sat_solution(model: List[int], n: int, vm: VarManager) -> List[List[i
 
 
 def verify_sudoku_solution(grid: List[List[int]], puzzle: List[List[int]], n: int) -> bool:
-    """Kiểm tra hàng, cột, khối VÀ các ô gợi ý ban đầu được giữ nguyên."""
     bs = math.isqrt(n)
     expected = set(range(1, n + 1))
     for i in range(n):
@@ -380,7 +378,6 @@ def run_experiments(args) -> None:
 # 7. THỐNG KÊ VÀ BÁO CÁO TỔNG HỢP
 
 def fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
-    """Kiểm định chính xác Fisher hai phía cho bảng [[a,b],[c,d]]."""
     r1, r2, c1 = a + b, c + d, a + c
     total = r1 + r2
 
