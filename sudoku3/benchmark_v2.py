@@ -196,7 +196,7 @@ def generate_complete_sudoku(n: int, seed: int) -> List[List[int]]:
 
 def generate_sudoku(n: int, empty_cells: int, seed: int) -> List[List[int]]:
     board = generate_complete_sudoku(n, seed)
-    rng = random.Random(seed * 1_000_003 + 7919)  # luồng ngẫu nhiên riêng cho việc xóa ô
+    rng = random.Random(seed * 1_000_003 + 7919)  
     positions = [(r, c) for r in range(n) for c in range(n)]
     rng.shuffle(positions)
     puzzle = [row[:] for row in board]
@@ -247,16 +247,14 @@ def benchmark_worker(enc_name: str, puzzle: List[List[int]], n: int, result_queu
             "restarts": stats.get("restarts", 0),
             "verified": int(bool(solved and valid)),
         })
-    except Exception as e:  # noqa: BLE001
+    except Exception as e: 
         result_queue.put({"status": "ERROR", "error": f"{type(e).__name__}: {e}"})
 
 
-STARTUP_GRACE = 15.0  # giây chờ thêm cho khởi động tiến trình + giải mã/kiểm chứng
+STARTUP_GRACE = 15.0  
 
 
 def run_single_test(enc_name: str, puzzle: List[List[int]], n: int, timeout: float) -> Dict[str, Any]:
-    """Timeout áp dụng lên (enc + load + solve). Tiến trình bị kill sau timeout + grace;
-    nếu hoàn tất nhưng tổng enc+load+solve > timeout thì vẫn tính là TIMEOUT."""
     ctx = multiprocessing.get_context("spawn")
     q = ctx.Queue()
     proc = ctx.Process(target=benchmark_worker, args=(enc_name, puzzle, n, q))
@@ -278,7 +276,7 @@ def run_single_test(enc_name: str, puzzle: List[List[int]], n: int, timeout: flo
     try:
         proc.close()
         q.close()
-    except Exception:  # noqa: BLE001
+    except Exception:  
         pass
     return res
 
@@ -293,9 +291,6 @@ CSV_FIELDS = [
 
 
 def load_done_keys(path: str) -> set:
-    """Khóa các lượt đã xong: (n, tỉ lệ, mã hóa, seed, timeout).
-    Có timeout trong khóa để đổi timeout thì không trộn nhầm dữ liệu cũ; dòng ERROR không được
-    coi là đã xong nên sẽ được chạy lại."""
     done = set()
     if os.path.exists(path):
         with open(path, newline="", encoding="utf-8") as f:
@@ -319,7 +314,7 @@ def run_experiments(args) -> None:
     for n in args.sizes:
         for ratio in args.ratios:
             for seed in range(args.seeds):
-                for enc in args.encodings:  # xen kẽ các mã hóa theo seed -> nếu dừng giữa chừng vẫn cân bằng
+                for enc in args.encodings:  
                     if (n, ratio, enc, seed, float(timeouts[n])) not in done:
                         tasks.append((n, ratio, enc, seed))
 
@@ -354,7 +349,6 @@ def run_experiments(args) -> None:
             row["par2"] = res["total_time"]
         elif res["status"] == "TIMEOUT":
             row["par2"] = 2 * timeout
-            # Nếu có số liệu kích thước từ lượt hoàn tất-nhưng-quá-giờ thì giữ lại
             for k in ("primary", "aux", "clauses", "enc_time", "load_time", "sol_time",
                       "total_time", "conflicts", "decisions", "propagations", "restarts"):
                 if k in res:
@@ -399,9 +393,7 @@ def fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
 
 
 def bootstrap_ci_mean(values: List[float], iters: int = 10000, seed: int = 12345) -> Tuple[float, float]:
-    """Khoảng tin cậy bootstrap phân vị 95% của trung bình (10 000 lần lấy mẫu lại, hạt giống 12345).
-    Nếu có NumPy thì dùng cùng thuật toán với analyze.py nên ra cùng kết quả; nếu không thì dùng
-    bản Python thuần (cùng tham số, khác bộ sinh số ngẫu nhiên nên có thể lệch ở chữ số cuối)."""
+    
     if len(values) < 2:
         return (values[0], values[0]) if values else (0.0, 0.0)
     try:
@@ -418,7 +410,6 @@ def bootstrap_ci_mean(values: List[float], iters: int = 10000, seed: int = 12345
 
 
 def holm_adjust(ps: List[float]) -> List[float]:
-    """Hiệu chỉnh Holm–Bonferroni; trả về p đã hiệu chỉnh theo thứ tự đầu vào."""
     m = len(ps)
     order = sorted(range(m), key=lambda i: ps[i])
     adj = [0.0] * m
@@ -548,12 +539,10 @@ def parse_timeouts(spec: str) -> Dict[int, float]:
 
 
 PRESETS = {
-    # vài phút: kiểm tra nhanh pipeline
+
     "quick": dict(sizes=[9, 16, 25], seeds=5, ratios=[0.5], timeouts="9:30,16:30,25:60,36:60"),
-    # N<=25 đầy đủ: nhiều seed, quét tỉ lệ ô trống
     "medium": dict(sizes=[9, 16, 25], seeds=30, ratios=[0.3, 0.4, 0.5, 0.6],
                    timeouts="9:30,16:30,25:120,36:300"),
-    # Cấu hình đầy đủ theo đề xuất; N=36 có thể mất RẤT nhiều giờ
     "full": dict(sizes=[9, 16, 25, 36], seeds=30, ratios=[0.3, 0.4, 0.5, 0.6],
                  timeouts="9:30,16:30,25:120,36:300"),
 }
