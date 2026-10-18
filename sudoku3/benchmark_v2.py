@@ -293,16 +293,25 @@ CSV_FIELDS = [
 
 
 def load_done_keys(path: str) -> set:
+    """Khóa các lượt đã xong: (n, tỉ lệ, mã hóa, seed, timeout).
+    Có timeout trong khóa để đổi timeout thì không trộn nhầm dữ liệu cũ; dòng ERROR không được
+    coi là đã xong nên sẽ được chạy lại."""
     done = set()
     if os.path.exists(path):
         with open(path, newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
-                done.add((int(row["n"]), float(row["empty_ratio"]), row["encoding"], int(row["seed"])))
+                if row["status"] not in ("OK", "TIMEOUT"):
+                    continue
+                done.add((int(row["n"]), float(row["empty_ratio"]), row["encoding"],
+                          int(row["seed"]), float(row["timeout"])))
     return done
 
 
 def run_experiments(args) -> None:
     timeouts = parse_timeouts(args.timeouts)
+    missing = [n for n in args.sizes if n not in timeouts]
+    if missing:
+        raise SystemExit(f"Thiếu timeout cho kích thước {missing}: thêm vào --timeouts (ví dụ {missing[0]}:60)")
     done = load_done_keys(args.out)
     new_file = not os.path.exists(args.out) or os.path.getsize(args.out) == 0
 
@@ -311,7 +320,7 @@ def run_experiments(args) -> None:
         for ratio in args.ratios:
             for seed in range(args.seeds):
                 for enc in args.encodings:  # xen kẽ các mã hóa theo seed -> nếu dừng giữa chừng vẫn cân bằng
-                    if (n, ratio, enc, seed) not in done:
+                    if (n, ratio, enc, seed, float(timeouts[n])) not in done:
                         tasks.append((n, ratio, enc, seed))
 
     total_planned = len(args.sizes) * len(args.ratios) * args.seeds * len(args.encodings)
@@ -390,9 +399,9 @@ def fisher_exact_two_sided(a: int, b: int, c: int, d: int) -> float:
 
 
 def bootstrap_ci_mean(values: List[float], iters: int = 10000, seed: int = 12345) -> Tuple[float, float]:
-    """Khoang tin cay bootstrap phan vi 95% cua trung binh (10 000 lan lay mau lai, hat giong 12345).
-    Neu co NumPy thi dung cung thuat toan voi analyze.py nen ra cung ket qua; neu khong thi dung
-    ban Python thuan (cung tham so, khac bo sinh so ngau nhien nen co the lech o chu so cuoi)."""
+    """Khoảng tin cậy bootstrap phân vị 95% của trung bình (10 000 lần lấy mẫu lại, hạt giống 12345).
+    Nếu có NumPy thì dùng cùng thuật toán với analyze.py nên ra cùng kết quả; nếu không thì dùng
+    bản Python thuần (cùng tham số, khác bộ sinh số ngẫu nhiên nên có thể lệch ở chữ số cuối)."""
     if len(values) < 2:
         return (values[0], values[0]) if values else (0.0, 0.0)
     try:
@@ -409,7 +418,7 @@ def bootstrap_ci_mean(values: List[float], iters: int = 10000, seed: int = 12345
 
 
 def holm_adjust(ps: List[float]) -> List[float]:
-    """Hieu chinh Holm-Bonferroni; tra ve p da hieu chinh theo thu tu dau vao."""
+    """Hiệu chỉnh Holm–Bonferroni; trả về p đã hiệu chỉnh theo thứ tự đầu vào."""
     m = len(ps)
     order = sorted(range(m), key=lambda i: ps[i])
     adj = [0.0] * m
@@ -418,10 +427,6 @@ def holm_adjust(ps: List[float]) -> List[float]:
         run = max(run, (m - rank) * ps[i])
         adj[i] = min(1.0, run)
     return adj
-
-
-def _f(x: str) -> Optional[float]:
-    return float(x) if x not in ("", None) else None
 
 
 def summarize(path: str, baseline: str = "Binomial", out_summary: Optional[str] = None) -> None:
@@ -528,7 +533,8 @@ def summarize(path: str, baseline: str = "Binomial", out_summary: Optional[str] 
         print(f"\nĐã ghi bảng tổng hợp: {out_summary}")
     print("\nGhi chú: p(F,Holm) là p của kiểm định Fisher hai phía so sánh tỉ lệ timeout với", baseline,
           "sau hiệu chỉnh Holm trên 4 so sánh; khoảng tin cậy PAR-2 là bootstrap 10 000 lần.")
-    print("Dữ liệu thô từng seed nằm trong", path, "- Friedman, Wilcoxon-Holm, bảng ghép cặp và hình: chạy analyze.py.")
+    print("Dữ liệu thô từng seed nằm trong", path, "- Friedman, Wilcoxon-Holm, bảng ghép cặp, hình và bảng Fisher-Holm "
+          "(trùng với cột p(F,Holm) ở trên): chạy analyze.py.")
 
 
 # 8. CLI

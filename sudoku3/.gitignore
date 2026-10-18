@@ -1,0 +1,14 @@
+.vscode/
+analysis_out/
+__pycache__/
+*.pyc
+quick_*.csv
+extra_*.csv
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.lol
+*.loa

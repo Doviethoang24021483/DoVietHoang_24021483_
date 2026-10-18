@@ -1,5 +1,5 @@
-python-sat
-numpy
-pandas
-scipy
-matplotlib
+python-sat==1.9.dev15
+numpy==2.4.3
+pandas==3.0.1
+scipy==1.17.1
+matplotlib==3.10.8
